@@ -48,7 +48,7 @@ TARGETS = [
         # The official season-ticket-holder RETURNS market. This is where a
         # sold-out match's freed-up seats appear. This is your primary target.
         "name": "BVB second market",
-        "url": "https://www.bvb.de/de/en/tickets/ticket-information/second-market.html",
+        "url": "https://www.ticket-onlineshop.com/ols/bvb/de/profis/channel/shop/areaplan/venue/event/676020",
         "mode": "change",
         "available_keywords": ["buy", "available", "verfügbar", "second market", "zweitmarkt"],
         "soldout_keywords": ["no tickets", "keine tickets", "currently no"],
@@ -58,7 +58,7 @@ TARGETS = [
         # BVB shop, go to the Dortmund vs Bayern Supercup match, copy the address
         # bar, and paste it here. The more specific, the better the signal.
         "name": "BVB shop – Supercup match",
-        "url": "https://www.ticket-onlineshop.com/ols/bvb/en/home/channel/shop/index",
+        "url": "https://www.ticket-onlineshop.com/ols/bvb/de/profis/channel/shop/areaplan/venue/event/676020",
         "mode": "keyword",
         "available_keywords": ["in den warenkorb", "add to cart", "tickets kaufen", "buy tickets"],
         "soldout_keywords": ["ausverkauft", "sold out", "nicht verfügbar", "not available"],
