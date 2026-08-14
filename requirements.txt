@@ -1,0 +1,3 @@
+requests>=2.31
+# Optional but recommended for the BVB / eventim shop (JS + bot protection):
+# playwright>=1.44
