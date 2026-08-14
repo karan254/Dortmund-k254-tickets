@@ -100,6 +100,15 @@ EMAIL_TO = os.environ.get("EMAIL_TO", "")
 USE_PLAYWRIGHT = os.environ.get("USE_PLAYWRIGHT", "false").lower() in ("1", "true", "yes")
 
 # ----------------------------------------------------------------------------
+# 5. "Still no tickets" heartbeat
+# ----------------------------------------------------------------------------
+# Send a periodic status message (e.g. "No tickets available") so you know the
+# monitor is alive. Value is HOURS between heartbeats. 0 = off.
+# 24 = once a day. Warning: the monitor checks every 10 min, so a tiny value here
+# means dozens of messages a day. Keep it >= 6 unless you really want the spam.
+HEARTBEAT_HOURS = float(os.environ.get("HEARTBEAT_HOURS", "0"))
+
+# ----------------------------------------------------------------------------
 STATE_FILE = Path(__file__).with_name("state.json")
 LOG_FILE = Path(__file__).with_name("monitor.log")
 HEADERS = {
@@ -177,6 +186,9 @@ def check_target(target: dict, state: dict) -> bool:
     name = target["name"]
     html = fetch(target["url"])
     if not html:
+        prev = state.get(name, {})
+        prev["status"] = "could not check (site blocked or down)"
+        state[name] = prev
         return False
 
     text = normalize(html)
@@ -192,21 +204,25 @@ def check_target(target: dict, state: dict) -> bool:
         if available_now and not was_available:
             trigger = True
             detail = "availability keywords appeared"
-        state[name] = {"available": available_now}
+        state[name] = {"available": available_now, "status": (
+            "TICKETS AVAILABLE" if available_now else "no tickets available")}
         log(f"  [{name}] available={available_now} (buy={has_available}, soldout={has_soldout})")
 
     else:  # change mode
         digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
         prev_digest = prev.get("hash")
+        status = "no change"
         if prev_digest is None:
+            status = "baseline saved"
             log(f"  [{name}] baseline saved (no alert on first run)")
         elif digest != prev_digest:
             trigger = True
             detail = "page content changed"
+            status = "page CHANGED - check it"
             log(f"  [{name}] CHANGED")
         else:
             log(f"  [{name}] no change")
-        state[name] = {"hash": digest}
+        state[name] = {"hash": digest, "status": status}
 
     if trigger:
         notify(
@@ -287,6 +303,27 @@ def _notify_email(title: str, message: str) -> bool:
 
 
 # ------------------------------- main ---------------------------------------
+def maybe_send_heartbeat(state: dict) -> None:
+    """Send a periodic 'still nothing' status message if HEARTBEAT_HOURS is set."""
+    if HEARTBEAT_HOURS <= 0:
+        return
+    now = time.time()
+    last = state.get("_heartbeat", 0)
+    if now - last < HEARTBEAT_HOURS * 3600:
+        return  # not time yet
+
+    lines = []
+    for target in TARGETS:
+        status = state.get(target["name"], {}).get("status", "unknown")
+        lines.append(f"- {target['name']}: {status}")
+    summary = "\n".join(lines)
+    notify(
+        title="⏱️ BVB monitor status",
+        message=f"Still watching. Current status:\n{summary}\n({datetime.now():%Y-%m-%d %H:%M})",
+    )
+    state["_heartbeat"] = now
+
+
 def run_once() -> None:
     state = load_state()
     log(f"Checking {len(TARGETS)} target(s)...")
@@ -295,6 +332,7 @@ def run_once() -> None:
             check_target(target, state)
         except Exception as exc:  # noqa: BLE001
             log(f"! error on {target['name']}: {exc}")
+    maybe_send_heartbeat(state)
     save_state(state)
 
 
