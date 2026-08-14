@@ -40,6 +40,7 @@ jobs:
       - name: Run check
         env:
           USE_PLAYWRIGHT: "true"
+          HEARTBEAT_HOURS: "24"
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python ticket_monitor.py --once
