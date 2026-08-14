@@ -1,0 +1,45 @@
+name: ticket-monitor
+
+# Runs the check every 10 min on GitHub's free runners (no computer needed).
+# Use a PUBLIC repo for unlimited free minutes. Put your Telegram values in as
+# encrypted repo Secrets (Settings -> Secrets and variables -> Actions).
+# Never hardcode tokens in the code.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # every 10 minutes
+  workflow_dispatch: {}        # manual "Run workflow" button in the Actions tab
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ticket-monitor
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps (incl. headless browser)
+        run: |
+          pip install -r requirements.txt
+          pip install playwright
+          playwright install --with-deps chromium
+
+      # Keep state.json between runs so change-detection doesn't re-alert forever.
+      - name: Restore state
+        uses: actions/cache@v4
+        with:
+          path: state.json
+          key: ticket-monitor-state-${{ github.run_id }}
+          restore-keys: ticket-monitor-state-
+
+      - name: Run check
+        env:
+          USE_PLAYWRIGHT: "true"
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python ticket_monitor.py --once
